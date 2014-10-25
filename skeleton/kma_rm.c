@@ -53,6 +53,7 @@ typedef struct
 	int size;
 	void* prev;
 	void* next;
+	void* pageHeader;
 } pageEntry;
 
 typedef struct
@@ -77,26 +78,40 @@ void deleteEntry(void entry);
 void*
 kma_malloc(kma_size_t size)
 {
-  if ((size + sizeof(void*)) > PAGESIZE)
-  {
-	printf("requested size too big");
-	return NULL;
-  }
-  // no mainPage, then initate the page
-  if (!mainPage)
-  {
-	mainPage = get_page();
-	initPage(mainPage);
-  }
+	// if the requested size is greater than a page, ignore it
+	if ((size + sizeof(void*)) > PAGESIZE)
+	{
+		//printf("requested size too big");
+		return NULL;
+	}
+	// if there are no allocated page, then initate the page
+	if (!mainPage)
+	{
+		mainPage = get_page();
+		initPage(mainPage);
+	}
+	// find suitable space
+	pageEntry* firstFit = FirstFit(size);
+	pageHeader* base = BASEADDR(firstFit);
+	// increase block count
+	base->blockCount++;
+	// return block address
+	return firstFit;
 }
 
 // initialize page
 void initPage(kma_page_t* page)
 {
+	// point page to itself to header can access it
 	*((kma_page_t**) page->ptr) = page;
 	pageHeader* header = (pageHeader*)(page->ptr);
+	// set linked list
 	header->head = (pageEntry*)((long int)header + sizeof(pageHeader));
+	// add space
 	addEntry(page->head, (PAGESIZE - sizeof(pageHeader)));
+	// initialize counters
+	header->pageCount = 0;
+	header->blockCount = 0;
 }
 
 //
