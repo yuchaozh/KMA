@@ -215,11 +215,25 @@ kma_free(void* ptr, kma_size_t size)
 {
 	pageHeader* page = (pageHeader*)(mainPage->ptr);
 	int totalPages = page->pageCount;
-	int count = 1;
-	for (; count; totalPages--)
+	pageHeader* tmp;
+	int counter = 0;
+	do 
 	{
-		
+		counter = 0;
+		tmp = (((pageHeader*)((long int) mainPage + totalPages * PAGESIZE)));
+		pageEntry* tmpEntry = mainPage->head;
+		pageEntry* tmp2;
+		if (((pageHead*) tmp)->blockCount == 0)
+		{
+			while (!tmpEntry)
+			{
+				tmp2 = tmpEntry->next;
+				if (tmpEntry->)
+			}
+		}
+
 	}
+	
 }
 
 #endif // KMA_RM
