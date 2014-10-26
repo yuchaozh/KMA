@@ -57,7 +57,7 @@ typedef struct
 
 typedef struct
 {
-	// must be the first one.
+	// must be the first one, point to self, used in free_page()
 	void* self;
 	int pageCount;
 	int blockCount;
@@ -70,11 +70,14 @@ kma_page_t* mainPage = NULL;
 void initPage(kma_page_t* page);
 void addEntry(void* entry, int size);
 block* firstFit(int size);
-void deleteEntry(void* entry);
+void deleteEntry(block* entry);
 /************External Declaration*****************************************/
 
 /**************Implementation***********************************************/
 
+/**
+ * allocate memory
+ **/
 void*
 kma_malloc(kma_size_t size)
 {
@@ -98,13 +101,14 @@ kma_malloc(kma_size_t size)
 	return firstFit1;
 }
 
-// initialize page
+/**
+ * initialize page
+ **/
 void initPage(kma_page_t* page)
 {
 	// point page to itself to header can access it
 	*((kma_page_t**) page->ptr) = page;
 	pageHeader* header = (pageHeader*)(page->ptr);
-
 	// initialize counters
 	header->pageCount = 0;
 	header->blockCount = 0;
@@ -114,13 +118,14 @@ void initPage(kma_page_t* page)
 	addEntry(((void*)(header->head)), (PAGESIZE - sizeof(pageHeader)));
 }
 
-//
+/**
+ * Add blocks on the page
+ **/ 
 void addEntry(void* entry, int size)
 {
 	// initialize new block
 	((block*)entry)->size = size;
 	((block*)entry)->prev = NULL;
-
 	pageHeader* firstPage = (pageHeader*)(mainPage->ptr);
 	void* firstEntry = (void*)(firstPage->head);
 	
@@ -146,7 +151,7 @@ void addEntry(void* entry, int size)
 			firstEntry = ((void*)(((block*)firstEntry)->next));
 		}
 		block* tmp = ((block*)firstEntry)->next;
-		if (tmp != NULL)
+		if (tmp)
 		{
 			tmp->prev = entry;
 		}
@@ -156,6 +161,9 @@ void addEntry(void* entry, int size)
 	}
 }
 
+/**
+ * Find first fit block
+ **/
 block* firstFit(int size)
 {
 	int minSize = sizeof(block);
@@ -172,13 +180,13 @@ block* firstFit(int size)
 			cursor = cursor->next;
 			continue;
 		}
-		// fit
+		// perfect fit
 		else if (cursor->size == size || (cursor->size - size) < minSize)
 		{
 			deleteEntry(cursor);
 			return (void*)cursor;
 		}
-		//
+		// fit, add fragement to the linked list
 		else
 		{
 			addEntry((void*)((long int)cursor + size), (cursor->size - size));
@@ -193,9 +201,12 @@ block* firstFit(int size)
 	return firstFit(size);
 }
 
-void deleteEntry(void* entry)
+/**
+ * Delete block
+ **/
+void deleteEntry(block* entry)
 {
-	block* ptr = (block*)entry;
+	block* ptr = entry;
 	block* ptrPrev = ptr->prev;
 	block* ptrNext = ptr->next;
 	
@@ -223,16 +234,15 @@ void deleteEntry(void* entry)
 	}
 	else
 	{
-		block* tmp1 = ptr->prev;
-		block* tmp2 = ptr->next;
-		tmp1->next = tmp2;
-		tmp2->prev = tmp1;
-		//((pageEntry*)(ptr->prev))->next = ptr->next;
-		//((pageEntry*)(ptr->next))->prev = ptr->prev;
+		((block*)(ptr->prev))->next = ptr->next;
+		((block*)(ptr->next))->prev = ptr->prev;
 		return;
 	}
 }
 
+/**
+ * Free memory
+ **/
 void
 kma_free(void* ptr, kma_size_t size)
 {
@@ -265,9 +275,9 @@ kma_free(void* ptr, kma_size_t size)
 				mainPage = NULL;
 			}
 			free_page(lastPage->self);
-			if (mainPage != NULL)
+			if (mainPage)
 			{
-				firstPage->pageCount -= 1;
+				firstPage->pageCount--;
 			}
 		}
 	}
