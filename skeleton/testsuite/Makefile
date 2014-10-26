@@ -18,7 +18,7 @@
 ###############################################################################
 
 # handin info
-TEAM = dkj755
+TEAM = "yzr736+jsy833"
 VERSION = `date +%Y%m%d%H%M%S`
 PROJ = kma
 
@@ -41,7 +41,7 @@ OBJS = ${SRCS:.c=.o}
 VM_NAME = "Ubuntu_1404"
 VM_PORT = "3022"
 
-SHELL_ARCH = "64"
+SHELL_ARCH = "32"
 
 
 all: ${PROGS} competition
@@ -59,7 +59,7 @@ analyze:
 test-reg: handin
 	HANDIN=`pwd`/${TEAM}-${VERSION}-${PROJ}.tar.gz;\
 	cd testsuite;\
-	bash ./run_testcase.sh $${HANDIN} ${SHELL_ARCH};
+	bash ./run_testcase.sh $${HANDIN};
 
 start-vm:
 	VBoxManage startvm ${VM_NAME} --type headless

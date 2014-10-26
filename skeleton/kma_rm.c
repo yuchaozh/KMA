@@ -53,15 +53,14 @@ typedef struct
 	int size;
 	void* prev;
 	void* next;
-	void* pageHeader;
 } pageEntry;
 
 typedef struct
 {
+	void* self;
 	int pageCount;
 	int blockCount;
 	pageEntry* head;
-	void* self;
 } pageHeader;
 
 /************Global Variables*********************************************/
@@ -69,8 +68,8 @@ kma_page_t* mainPage = NULL;
 /************Function Prototypes******************************************/
 void initPage(kma_page_t* page);
 void addEntry(void* entry, int size);
-void findFit(int size);
-void deleteEntry(void entry);
+pageEntry* firstFit(int size);
+void deleteEntry(void* entry);
 /************External Declaration*****************************************/
 
 /**************Implementation***********************************************/
@@ -78,57 +77,62 @@ void deleteEntry(void entry);
 void*
 kma_malloc(kma_size_t size)
 {
+//	printf("kma_malloc\n");
 	// if the requested size is greater than a page, ignore it
 	if ((size + sizeof(void*)) > PAGESIZE)
 	{
-		//printf("requested size too big");
 		return NULL;
 	}
 	// if there are no allocated page, then initate the page
-	if (!mainPage)
+	if (mainPage == NULL)
 	{
 		mainPage = get_page();
 		initPage(mainPage);
 	}
 	// find suitable space
-	pageEntry* firstFit = FirstFit(size);
-	pageHeader* base = BASEADDR(firstFit);
+	void* firstFit1 = firstFit(size);
+	pageHeader* base = BASEADDR(firstFit1);
 	// increase block count
 	base->blockCount++;
 	// return block address
-	return firstFit;
+	return firstFit1;
 }
 
 // initialize page
 void initPage(kma_page_t* page)
 {
+//	printf("initPage\n");
 	// point page to itself to header can access it
 	*((kma_page_t**) page->ptr) = page;
 	pageHeader* header = (pageHeader*)(page->ptr);
-	// set linked list
-	header->head = (pageEntry*)((long int)header + sizeof(pageHeader));
-	// add space
-	addEntry(page->head, (PAGESIZE - sizeof(pageHeader)));
+
 	// initialize counters
 	header->pageCount = 0;
 	header->blockCount = 0;
+	// set linked list
+	header->head = (pageEntry*)((long int)header + sizeof(pageHeader));
+	// add space
+	addEntry(((void*)(header->head)), (PAGESIZE - sizeof(pageHeader)));
 }
 
 //
 void addEntry(void* entry, int size)
 {
+//	printf("addEntry\n");
+	// initialize new block
 	((pageEntry*)entry)->size = size;
 	((pageEntry*)entry)->prev = NULL;
 
 	pageHeader* firstPage = (pageHeader*)(mainPage->ptr);
-	void* firstEntry = firstPage->head;
+	void* firstEntry = (void*)(firstPage->head);
 	
 	// insert into front of the linked list
 	if (entry < firstEntry)
 	{
-		((pageEntry*)firstEntry)->prev = (pageEntry*)entry;
-		((pageEntry*)entry)->next = ((pageEntry*)(firstEntry->head));
+		((pageEntry*)(firstPage->head))->prev = (pageEntry*)entry;
+		((pageEntry*)entry)->next = ((pageEntry*)(firstPage->head));
 		firstPage->head = (pageEntry*)entry;
+		return;
 	}
 	// empty
 	else if (entry == firstEntry)
@@ -141,86 +145,100 @@ void addEntry(void* entry, int size)
 	{
 		while (((pageEntry*)firstEntry)->next != NULL && entry > firstEntry)
 		{
-			firstEntry = ((pageEntry*)firstEntry)->next;
+			firstEntry = ((void*)(((pageEntry*)firstEntry)->next));
 		}
 		pageEntry* tmp = ((pageEntry*)firstEntry)->next;
 		if (tmp != NULL)
 		{
 			tmp->prev = entry;
 		}
-		if (tmp == NULL)
-		{
-			((pageEntry*)firstEntry)->next = entry;
-			((pageEntry*)entry)->prev = firstEntry;
-			((pageEntry*)entry)->next = tmp;
-		}
+		((pageEntry*)firstEntry)->next = entry;
+		((pageEntry*)entry)->prev = firstEntry;
+		((pageEntry*)entry)->next = tmp;
 	}
 }
 
-void* firstFit(int size)
+pageEntry* firstFit(int size)
 {
-	int minSize = sizeof(pagEntry*);
+//	printf("firstFir\n");
+	int minSize = sizeof(pageEntry);
 	if (size < minSize)
 		size = minSize;
 	pageHeader* header = (pageHeader*)(mainPage->ptr);
 	pageEntry* cursor = (pageEntry*)(header->head);
+//printf("%d,      %d,  \n",   cursor->size, size);
+
 	while (cursor)
 	{
 		// no enough size
 		if (cursor->size < size)
 		{
 			cursor = cursor->next;
+			continue;
 		}
-		// 
-		if (cursor->size == size || (cursor->size - size) < minSize)
+		// fit
+		else if (cursor->size == size || (cursor->size - size) < minSize)
 		{
 			deleteEntry(cursor);
 			return (void*)cursor;
 		}
+		//
 		else
 		{
+			//printf("%d,      %d,  \n",   cursor->size, size);
 			addEntry((void*)((long int)cursor + size), (cursor->size - size));
 			deleteEntry(cursor);
 			return (void*)cursor;
 		}
-		// no enough space, then add a new page
-		kma_page_t* newPage = get_page();
-		header->pageCount++;
-		initPage(newPage);
-		return firstFit(size);
 	}
+	// no enough space, then add a new page
+	kma_page_t* newPage = get_page();
+	initPage(newPage);
+	header->pageCount++;
+	return firstFit(size);
 }
 
 void deleteEntry(void* entry)
 {
+//	printf("deleteEntry\n");
 	pageEntry* ptr = (pageEntry*)entry;
-	//pageEntry* ptrPrev = ptr->prev;
-	//pageEntry* ptrNext = ptr->next;
+	pageEntry* ptrPrev = ptr->prev;
+	pageEntry* ptrNext = ptr->next;
 	
 	// only one node
-	if (entry->prev == NULL && entry->next == NULL)
+	if (ptrPrev == NULL && ptrNext == NULL)
 	{
-		mainPage = NULL;
+//		printf("only one node");
+		pageHeader* tmp = (pageHeader*)(mainPage->ptr);
+		tmp->head = NULL;
+		mainPage = 0;
 		return;
 	}
 	// delete the last node
-	else if (entry->next == NULL)
+	else if (ptrNext == NULL)
 	{
-		((pageEntry*)(entry->prev))->next = NULL;
+//		printf("delete the last node");
+		ptrPrev->next = NULL;
 		return;
 	}
 	// delete the first node
-	else if (entry->prev == NULL)
+	else if (ptrPrev == NULL)
 	{
+//		printf("the first node");
 		pageHeader* tmp = (pageHeader*)(mainPage->ptr);
-		((pageEntry*)(entry->next))->prev = NULL;
-		tmp->head = (void*)(entry->next);
+		ptrNext->prev = NULL;
+		tmp->head = ptrNext;
 		return;
 	}
 	else
 	{
-		((pageEntry*)(entry->prev))->next = entry->next;
-		((pageEntry*)(entry->next))->prev = entry->prev;
+//		printf("else\n");
+		pageEntry* tmp1 = ptr->prev;
+		pageEntry* tmp2 = ptr->next;
+		tmp1->next = tmp2;
+		tmp2->prev = tmp1;
+		//((pageEntry*)(ptr->prev))->next = ptr->next;
+		//((pageEntry*)(ptr->next))->prev = ptr->prev;
 		return;
 	}
 }
@@ -228,27 +246,47 @@ void deleteEntry(void* entry)
 void
 kma_free(void* ptr, kma_size_t size)
 {
-	pageHeader* page = (pageHeader*)(mainPage->ptr);
-	int totalPages = page->pageCount;
-	pageHeader* tmp;
-	int counter = 0;
-	do 
+//	printf("kma_free: %d\n", size);
+	addEntry(ptr, size);
+//	printf("here\n");
+	pageHeader* baseAdd = BASEADDR(ptr);
+	baseAdd->blockCount--;
+	pageHeader* firstPage = (pageHeader*)(mainPage->ptr);
+	int totalPages = firstPage->pageCount;
+	int count = 1;
+	pageHeader* lastPage;
+	for (; count; totalPages--)
 	{
-		counter = 0;
-		tmp = (((pageHeader*)((long int) mainPage + totalPages * PAGESIZE)));
-		pageEntry* tmpEntry = mainPage->head;
-		pageEntry* tmp2;
-		if (((pageHead*) tmp)->blockCount == 0)
+		lastPage = ((pageHeader*)((long int)firstPage + totalPages * PAGESIZE));
+		count = 0;
+		if (lastPage->blockCount == 0)
 		{
-			while (!tmpEntry)
+			count = 1;
+			pageEntry* tmp;
+			for (tmp = firstPage->head; tmp != NULL; tmp = tmp->next)
 			{
-				tmp2 = tmpEntry->next;
-				if (tmpEntry->)
+				if (BASEADDR(tmp) == lastPage)
+				{
+//					printf("continue delete\n");
+					deleteEntry(tmp);
+				}
+			}
+			count = 1;
+			if (lastPage == firstPage)
+			{
+//				printf("last page is first page\n");
+				count = 0;
+				mainPage = NULL;
+			}
+//			printf("1\n");
+			free_page(lastPage->self);
+//			printf("2\n");
+			if (mainPage != NULL)
+			{
+				firstPage->pageCount -= 1;
 			}
 		}
-
 	}
-	
 }
 
 #endif // KMA_RM
