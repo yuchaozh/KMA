@@ -51,6 +51,8 @@
  *  variables should be in all lower case. When initializing
  *  structures and arrays, line everything up in neat columns.
  */
+#define DPRINT(x)
+
 typedef struct
 {
   void* head;
@@ -83,12 +85,6 @@ typedef struct
 /************Global Variables*********************************************/
 kma_page_t * start = NULL;
 
-//#define DEBUG
-#ifdef DEBUG
-#define DPRINT(x) printf x
-#else
-#define DPRINT(x)
-#endif
 
 /************Function Prototypes******************************************/
 //set up admin struct
@@ -150,15 +146,8 @@ kma_malloc(kma_size_t size)
   }
   if (request != NULL)
     result = getBufferFromFreelist(request);
-  
-  DPRINT(("Requesting %d bytes\n", rounded_up));
 
-  #ifdef LOGGING
-    numrequests++;
-    totalRequests += size;
-    totalUtil += (float)totalRequests/(float)(page_stats()->num_in_use*PAGESIZE);
-    //printf("%f\n",totalUtil);
-  #endif
+  DPRINT(("Requesting %d bytes\n", rounded_up));
 
   return result;
 }
@@ -213,18 +202,12 @@ setupMainPage()
 void *
 getBufferFromFreelist(freelist_t* list)
 {
-  /* attempts to return a free buffer from the input list
-  if none are free, either requests a new page or makes 
-  a recursive call to the next largest size and breaks that 
-  into two buffers
-  */
   DPRINT(("get buffer of size %i\n",list->size));
   mainlist_t*mainlist = (mainlist_t*)((void*)start->ptr+sizeof(buffer_t));
   mainlist->used++;
   if (list->start==NULL) {
     if (list->up==NULL){
       kma_page_t* page = get_page();
-      //addPage(page);
       buffer_t* buf = (buffer_t*)page->ptr;
       buf->page = page;
       buf->head = (void*)list;
@@ -261,9 +244,6 @@ getBufferFromFreelist(freelist_t* list)
 void
 kma_free(void* ptr, kma_size_t size)
 {
-  /*
-    frees a buffer. free everything and set start to NULL if nothing is being used
-  */
   freeAndMerge(ptr);
   mainlist_t* mainlist = (mainlist_t*)((void*)start->ptr+sizeof(buffer_t)); 
   // printf("used=%i, 64=%i, 128=%i, 256=%i, ",mainlist->used,freeCount(&mainlist->buf64),freeCount(&mainlist->buf128),freeCount(&mainlist->buf256));
@@ -273,22 +253,12 @@ kma_free(void* ptr, kma_size_t size)
     DPRINT(("clear everything"));
     free_page(start);
     start=NULL;
-    #ifdef LOGGING
-      printf("util ratio = %f\n",totalUtil/(float)numrequests);
-    #endif
   }
-  #ifdef LOGGING
-    totalRequests-=size;
-  #endif
 }
 
 void
 freeAndMerge(void* ptr)
 {
-  /*
-    returns a buffer to its respective free list. if its buddy is free then
-    merges the two and makes a recursive call to free the merged buffer 
-  */
   DPRINT(("freeing buffer\n"));
   mainlist_t*mainlist = (mainlist_t*)((void*)start->ptr+sizeof(buffer_t));
   mainlist->used--;
@@ -316,7 +286,7 @@ freeAndMerge(void* ptr)
       buf->prev = NULL;
     }
   }
-  else  //they have to be the same size
+  else  //same size
   {
     //printf("merging two of size %i\n",buf->size);
     removeFromFreelist(bud,list);
@@ -334,9 +304,7 @@ freeAndMerge(void* ptr)
 void*
 getBuddy(void*buf,int size)
 {
-  /*
-    returns the address of the buffer's buddy
-  */
+  // returns the address of the buffer's buddy
   uintptr_t flipper = 1<<size;
   uintptr_t address = (uintptr_t)buf;
   return (void*)(address^flipper);
@@ -344,9 +312,7 @@ getBuddy(void*buf,int size)
 void
 removeFromFreelist(buffer_t* buf, freelist_t* list)
 {
-  /*
-    removes a buffer from its free list
-  */
+  // removes a buffer from its free list
   buffer_t* next = (buffer_t*)buf->head;
   buffer_t* prev = (buffer_t*)buf->prev;
   if (list->start==buf) {
@@ -363,9 +329,7 @@ removeFromFreelist(buffer_t* buf, freelist_t* list)
 int
 freeCount(freelist_t* list)
 {
-  /*
-    counts the number of free buffers in a free list
-  */
+  // counts the number of free buffers in a free list
   int count = 0;
   buffer_t* buf = list->start;
   while (buf!=NULL) {
