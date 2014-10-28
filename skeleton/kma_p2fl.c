@@ -50,10 +50,47 @@
  *  structures and arrays, line everything up in neat columns.
  */
 
+// main list to track sets of free lists
+typedef struct
+{
+	linkedList ll32;
+	linkedList ll64;
+	linkedList ll128;
+	linkedList ll256;
+	linkedList ll512;
+	linkedList ll1024;
+	linkedList ll2048;
+	linkedList ll4096;
+	linkedList ll8192;
+	linkedList ll;
+	int occupy;
+} mainList;
+
+// buffer
+typedef struct
+{
+	void* head;
+} buffer;
+
+// linked list 
+typedef struct
+{
+	int size;
+	int occupy;
+	pages* pageList;
+	buffer* bufferList;
+} linkedList;
+
+typedef struct
+{
+	kma_page_t* page;
+	struct pages* next;
+} pages;
+
 /************Global Variables*********************************************/
-
+kma_page_t* mainPage = NULL;
 /************Function Prototypes******************************************/
-
+void initPage(kma_page_t* page);
 /************External Declaration*****************************************/
 
 /**************Implementation***********************************************/
@@ -61,7 +98,153 @@
 void*
 kma_malloc(kma_size_t size)
 {
-  return NULL;
+	if (!mainPage)
+	{
+		mainPage = get_page();
+		initPage(mainPage);
+	}
+
+	mainList* main_list = mainPage->ptr;
+	linkedList* freeList = NULL;
+	int totalSize = size + sizeof(buffer);
+	switch(totalSize)
+	{
+		case 32:
+			freeList = &main_list->ll32;
+			break;
+		case 64:
+			freeList = &main_list->ll64;
+			break;
+		case 128:
+			freeList = &main_list->ll128;
+			break;
+		case 256:
+			freeList = &main_list->ll256;
+			break;
+		case 512:
+			freeList = &main_list->ll512;
+			break;
+		case 1024:
+			freeList = &main_list->ll1024;
+			break;
+		case 2048:
+			freeList = &main_list->ll2048;
+			break;
+		case 4096:
+			freeList = &main_list->ll4096;
+			break;
+		case 8192:
+			freeList = &main_list->ll8192;
+			break;
+		default:
+			break;
+	}
+	if (freeList)
+		return getBufferFromFreeList(freeList);
+}
+
+// todo: create a init function to init all structure
+void initPage(kma_page_t* page)
+{
+	mainList* main_list = mainPage->ptr;
+	main_list->ll32.size = 32;
+	main_list->ll64.size = 64;
+	main_list->ll128.size = 128;
+	main_list->ll256.size = 256;
+	main_list->ll512.size = 512;
+	main_list->ll1024.size = 1024;
+	main_list->ll2048.size = 2048;
+	main_list->ll4096.size = 4096;
+	main_list->ll8192.size = 8192;
+	main_list->ll.size = sizeof(pages) + sizeof(buffer);
+
+	main_list->ll32.occupy = 0;
+	main_list->ll64.occupy = 0;
+	main_list->ll128.occupy = 0;
+	main_list->ll256.occupy = 0;
+	main_list->ll512.occupy = 0;
+	main_list->ll1024.occupy = 0;
+	main_list->ll2048.occupy = 0;
+	main_list->ll4096.occupy = 0;
+	main_list->ll8192.occupy = 0;
+	main_list->ll.occupy = 0;
+	
+	main_list->ll32.pageList = NULL;
+	main_list->ll64.pageList = NULL;
+	main_list->ll128.pageList = NULL;
+	main_list->ll256.pageList = NULL;
+	main_list->ll512.pageList = NULL;
+	main_list->ll1024.pageList = NULL;
+	main_list->ll2048.pageList = NULL;
+	main_list->ll4096.pageList = NULL;
+	main_list->ll8192.pageList = NULL;
+	main_list->ll.pageList = NULL;
+
+	main_list->ll32.bufferList = NULL;
+	main_list->ll64.bufferList = NULL;
+	main_list->ll128.bufferList = NULL;
+	main_list->ll256.bufferList = NULL;
+	main_list->ll512.bufferList = NULL;
+	main_list->ll1024.bufferList = NULL;
+	main_list->ll2048.bufferList = NULL;
+	main_list->ll4096.bufferList = NULL;
+	main_list->ll8192.bufferList = NULL;
+	main_list->ll.bufferList = NULL;
+
+	main_list->occupy = 0;
+	// splite pages into buffer
+	int remainedSize = PAGESIZE - sizeof(mainList);
+	int bufferCounts = remainedSize / ();
+	void* startPoint = page->ptr + sizeof(mainList);
+	buffer* bufferHead;
+	for (int i = 0; i < bufferCounts; i++)
+	{
+		bufferHead = (buffer*)(startPoint + i * (sizeof(pages) + sizeof(buffer)));
+		bufferHead->head = main_list->ll.bufferList;
+		main_list->ll.bufferList = bufferHead;
+	}
+
+	addPageToFreeList(page, &main_list->ll);
+}
+
+void addPageToFreeList(kma_page_t* page, linkedList* list)
+{
+	mainList* main = (mainList*)buffer->ptr;
+	page* pagel = (page*)getBufferFromFreeList(&main->ll);
+	pagel->page = page;
+
+	pagel->next = list->pageList;
+	list->pageList = pagel;
+}
+
+void* getBufferFromFreeList(linkedlist* list)
+{
+	if (!list->bufferList)
+	{
+		addBufferTo(list);
+	}
+	buffer* buf = list->bufferList;
+	list->bufferList = (buffer*)buf->head;
+	buf->head = (void*)list;
+	list->occupy++;
+	mainList* main = bufferList->ptr;
+	if (list != &main->ll)
+		main->occupy++;
+	return (void*)buf + sizeof(buffer);
+}
+
+void addBuffersTo(linkedlist* list)
+{
+	kma_page_t* page = get_page();
+	int bufferCount = PAGESIZE / list->size;
+	void* pagePoint = page->ptr;
+	for (int i = 0; i < bufferCount; i++)
+	{
+		buffer* buf = (buffer*)(pagePoints + i * list->size);
+		buf->head = list->bufferList;
+		list->bufferList = buf;
+	}
+	addPageToFreeList(page, list);
 }
 
 void
