@@ -22,7 +22,7 @@ TEAM = "yzr736+jsy833"
 VERSION = `date +%Y%m%d%H%M%S`
 PROJ = kma
 
-COMPETITION = KMA_BUD
+COMPETITION = KMA_RM
 
 CC = gcc
 MV = mv
