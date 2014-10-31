@@ -12,6 +12,9 @@ Resource Map:
 P2FL:
 
 Buddy System:
+kma_malloc: First, we should find out what's the cloest size to the size we want to allocate. Then allocate a piece. When allocating, we should first decide if we want to get a new page, or make recursize call to the right size and break it down to two buffers. After allocation, just return buffer.
+Kma_free: kma_free require us to recurssivly free buffer and merge with its buddy. When freeing, first we need to find its buddy, if the buddy is not used, merge them and free the whole piece by recursice call.
+
 
 Algorithm comparison:
 
