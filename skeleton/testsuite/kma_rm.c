@@ -87,7 +87,7 @@ kma_malloc(kma_size_t size)
 		return NULL;
 	}
 	// if there are no allocated page, then initate the page
-	if (mainPage == NULL)
+	if (!mainPage)
 	{
 		mainPage = get_page();
 		initPage(mainPage);
@@ -211,21 +211,21 @@ void deleteEntry(block* entry)
 	block* ptrNext = ptr->next;
 	
 	// only one node
-	if (ptrPrev == NULL && ptrNext == NULL)
+	if ((!ptrPrev) && (!ptrNext))
 	{
 		pageHeader* tmp = (pageHeader*)(mainPage->ptr);
 		tmp->head = NULL;
-		mainPage = 0;
+		mainPage = NULL;
 		return;
 	}
 	// delete the last node
-	else if (ptrNext == NULL)
+	else if (!ptrNext)
 	{
 		ptrPrev->next = NULL;
 		return;
 	}
 	// delete the first node
-	else if (ptrPrev == NULL)
+	else if (!ptrPrev)
 	{
 		pageHeader* tmp = (pageHeader*)(mainPage->ptr);
 		ptrNext->prev = NULL;
