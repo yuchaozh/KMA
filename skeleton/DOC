@@ -8,8 +8,10 @@ Algorithms: Implement resource map (kma_rm), buddy system (kma_bud) and simple p
 
 Implementation Summary:
 Resource Map:
+Resource map is a set of <base, size> value pairs to indicate free memory of the page. Base value indicates the starting address of the page pool and size means the size of the buffer. Here we only implement the First fit policy which is find the first fit space in the free list to allocate memory request.
 
 P2FL:
+For the power-of-two free lists algorithm, we create a set of free lists which the 2*m. For example, ll32, ll64, ll128, ll256... When encounter memory request, we will look up the corresponding free list by compare the size requested by the user with the size of the free lists. We will find the corresponding free list and find a free buffer for it.
 
 Buddy System:
 kma_malloc: First, we should find out what's the cloest size to the size we want to allocate. Then allocate a piece. When allocating, we should first decide if we want to get a new page, or make recursize call to the right size and break it down to two buffers. After allocation, just return buffer.
@@ -17,40 +19,8 @@ Kma_free: kma_free require us to recurssivly free buffer and merge with its budd
 
 
 Algorithm comparison:
+After we use the competitaion, we found that P2FL is faster then Buddy System and Buddy System is faster then Resource Map. However for the memory utilization Buddy System is higher than P2FL, and P2FL is higher than Resource Map.
 
+For memory utilization, due to P2FL divided into several size of free list so it has less chunks than RM. but for Buddy System, due to it has the merge two small free buffer into a one bigger buffer. As a result, its memory utilization is the highest one among these three algorithm.
 
-When the operating system has to allocate and manage all of the given physical memory, it will allocate it to either user-level processes or to the kernel. Memory allocated to the kernel will have its own memory manager called the kernel memory allocator (KMA), which will use different mechanisms because memory requests made to the kernel will most likely be a lot smaller than a page size.
-There are different algorithms in handling kernel memory, and we¡¯ve implemented the following: Power-of-two Free List, Buddy System, Resource Map, and McKusick-Karels. In this report, we will compare the performance of each algorithm, based on how many pages were requested to satisfy the amount of memory requested, as well as the time it took to allocate these memories.
-
-Data collection and comparison
-
-After implementing the four algorithms, we timed how long it took
-each of them to run trace 5 as well as their resource utilization.
-
-We collected the times with a simple time -p command and took
-the real elapsed time it took for the trace to run, in seconds.
-
-For resource utilization, for each malloc request, we calculated
-the total allocated bytes and divided by the total page bytes that
-were used at the time. Then we averaged all of these values for
-all of the malloc calls.
-
-Here is the data:
-
-Algorithm 	Time(s) 	Utilization
-P2FL 		0.58		0.58
-BUD 		0.62		0.65
-RM 			85.68 		0.49
-MCK2 		0.83 		0.07
-
-BUD takes a little longer than P2FL because it does extra work 
-making recursive calls to break up larger buffers into smaller
-ones. This also results in nigher utilization because now the
-pages can be used for buffers of different size so there is
-a diversity of buffer sizes that can be used for a single page
-
-RM is really slow because we implemented it with singly-linked
-lists so a lot of time was used to traverse these lists.
-
-MCK2 has really bad utilization because the nature of its 
-algorithm causes a lot of fragmentation.
+For the speed, the Resource map only has one free list, so it will take a signification time to traverse the list to find the suitable free buffer. But for the P2FL due to it has a set of separate lists so the traverseing time is smaller than resouce map. For the buddy system it needs to break git buffer into two smaller buffers. So it will be longer than P2FL but definately much less then the resource map.
